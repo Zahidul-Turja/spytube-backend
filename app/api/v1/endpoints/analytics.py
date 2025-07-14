@@ -1,14 +1,16 @@
 from fastapi import APIRouter, Depends
-from typing import Optional
+from typing import Optional, Dict
+from app.dependencies import get_current_user
 
 router = APIRouter()
 
 
 @router.get("/dashboard")
-async def get_dashboard_analytics():
+async def get_dashboard_analytics(current_user: Dict = Depends(get_current_user)):
     """Get main dashboard analytics"""
     return {
         "message": "Analytics dashboard endpoint",
+        "user": current_user["name"],
         "data": {
             "total_views": 0,
             "total_subscribers": 0,
