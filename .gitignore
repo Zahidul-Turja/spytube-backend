@@ -1,0 +1,61 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environment
+venv/
+env/
+.venv/
+.env/
+
+# VS Code and PyCharm settings
+.vscode/
+.idea/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+
+# Environment variables
+.env
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Alembic SQLite (if used for local testing)
+*.sqlite3
+
+# Python testing
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+.nox/
+
+# Docker
+*.pid
+*.bak
+*.tar
+*.gz
+
+# mypy and Pylint
+.mypy_cache/
+.dmypy.json
+.pyre/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Local databases or cache
+*.db
+*.sqlite
+cache/
