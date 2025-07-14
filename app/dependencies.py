@@ -29,7 +29,12 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
             )
 
-        return user
+        tokens = user_storage.get_user_tokens(user_id) or {}
+
+        # Merge tokens into user dict so caller has all info
+        user_with_tokens = {**user, **tokens}
+
+        return user_with_tokens
 
     except HTTPException:
         raise
