@@ -1,15 +1,22 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
 import os
+from pathlib import Path
+import environ
+
+env = environ.Env()
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
+environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 
 
 class Settings(BaseSettings):
     # API Settings
     API_V1_STR: str = "/api/v1"
-    PROJECT_NAME: str = "YouTube Analytics API"
+    PROJECT_NAME: str = "SpyTube"
 
     # Database
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/youtube_analytics"
+    DATABASE_URL: str = "postgresql://user:password@localhost:5432/spytube_backend"
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
@@ -20,9 +27,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     # Google OAuth
-    GOOGLE_CLIENT_ID: str = ""
-    GOOGLE_CLIENT_SECRET: str = ""
-    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/google/callback"
+    GOOGLE_CLIENT_ID: str = os.environ.get("GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET: str = os.environ.get("GOOGLE_CLIENT_SECRET")
+    GOOGLE_REDIRECT_URI: str = os.environ.get("GOOGLE_REDIRECT_URI")
 
     # YouTube API
     YOUTUBE_API_KEY: str = ""

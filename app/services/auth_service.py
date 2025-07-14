@@ -1,4 +1,5 @@
 import httpx
+from urllib.parse import urlencode
 from authlib.integrations.httpx_client import AsyncOAuth2Client
 from fastapi import HTTPException, status
 from typing import Dict, Optional
@@ -35,7 +36,7 @@ class AuthService:
         }
 
         base_url = "https://accounts.google.com/o/oauth2/v2/auth"
-        query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+        query_string = urlencode(params)
 
         return f"{base_url}?{query_string}"
 
