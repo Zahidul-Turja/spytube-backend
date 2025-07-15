@@ -33,6 +33,8 @@ class Settings(BaseSettings):
 
     # YouTube API
     YOUTUBE_API_KEY: str = ""
+    YOUTUBE_DATA_URL: str = ""
+    YOUTUBE_ANALYTICS_URL: str = ""
 
     # Environment
     ENVIRONMENT: str = "development"
