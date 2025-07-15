@@ -101,6 +101,12 @@ async def refresh_token(current_user: Dict = Depends(get_current_user)):
         )
 
 
+@router.get("/verify_token/{token}")
+async def verify_token(token: str):
+    """Verify JWT token"""
+    return auth_service.verify_token(token)
+
+
 @router.post("/logout")
 async def logout(current_user: Dict = Depends(get_current_user)):
     """Logout current user"""
