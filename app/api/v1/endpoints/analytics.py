@@ -292,7 +292,318 @@ async def get_dashboard_analytics(current_user: Dict = Depends(get_current_user)
             projected_monthly = daily_revenue * 30
             projected_yearly = projected_monthly * 12
 
-            return {
+            uploads_playlist_id = channel["contentDetails"]["relatedPlaylists"][
+                "uploads"
+            ]
+
+            # Step 1: Get video IDs from uploads playlist
+            videos_response = await client.get(
+                "https://www.googleapis.com/youtube/v3/playlistItems",
+                headers=headers,
+                params={
+                    "part": "snippet,contentDetails",
+                    "playlistId": uploads_playlist_id,
+                    "maxResults": 50,  # Can be increased up to 50
+                },
+            )
+
+            video_items = videos_response.json().get("items", [])
+            video_ids = [item["contentDetails"]["videoId"] for item in video_items]
+
+            # Step 2: Get detailed video statistics for all videos
+            detailed_videos = []
+            if video_ids:
+                # Batch request for video statistics (up to 50 IDs per request)
+                video_stats_response = await client.get(
+                    "https://www.googleapis.com/youtube/v3/videos",
+                    headers=headers,
+                    params={
+                        "part": "snippet,statistics,contentDetails,status,topicDetails,localizations",
+                        "id": ",".join(video_ids),
+                    },
+                )
+
+                video_stats = video_stats_response.json().get("items", [])
+
+                # Step 3: Get individual video analytics from YouTube Analytics API
+                for video_stat in video_stats:
+                    video_id = video_stat["id"]
+
+                    # Get analytics for this specific video (last 30 days)
+                    video_analytics_response = await client.get(
+                        "https://youtubeanalytics.googleapis.com/v2/reports",
+                        headers=headers,
+                        params={
+                            "ids": "channel==MINE",
+                            "startDate": str(last_30),
+                            "endDate": str(today),
+                            "metrics": "views,estimatedMinutesWatched,averageViewDuration,likes,dislikes,comments,shares,estimatedRevenue,estimatedAdRevenue,cpm,impressions,impressionClickThroughRate,averageViewPercentage,subscribersGained,subscribersLost,annotationClickThroughRate,annotationCloseRate,cardClickRate,cardTeaserClickRate,cardImpressions,cardTeaserImpressions,endScreenElementClickRate,endScreenElementImpressions",
+                            "filters": f"video=={video_id}",
+                        },
+                    )
+
+                    # Get video performance over time (daily breakdown)
+                    video_trend_response = await client.get(
+                        "https://youtubeanalytics.googleapis.com/v2/reports",
+                        headers=headers,
+                        params={
+                            "ids": "channel==MINE",
+                            "startDate": str(last_30),
+                            "endDate": str(today),
+                            "metrics": "views,estimatedMinutesWatched,estimatedRevenue",
+                            "dimensions": "day",
+                            "filters": f"video=={video_id}",
+                        },
+                    )
+
+                    # Get traffic sources for this video
+                    traffic_sources_response = await client.get(
+                        "https://youtubeanalytics.googleapis.com/v2/reports",
+                        headers=headers,
+                        params={
+                            "ids": "channel==MINE",
+                            "startDate": str(last_30),
+                            "endDate": str(today),
+                            "metrics": "views,estimatedMinutesWatched",
+                            "dimensions": "insightTrafficSourceType",
+                            "filters": f"video=={video_id}",
+                            "sort": "-views",
+                        },
+                    )
+
+                    # Get audience retention data
+                    retention_response = await client.get(
+                        "https://youtubeanalytics.googleapis.com/v2/reports",
+                        headers=headers,
+                        params={
+                            "ids": "channel==MINE",
+                            "startDate": str(last_30),
+                            "endDate": str(today),
+                            "metrics": "audienceWatchRatio,relativeRetentionPerformance",
+                            "dimensions": "elapsedVideoTimeRatio",
+                            "filters": f"video=={video_id}",
+                        },
+                    )
+
+                    # Get demographics data
+                    demographics_response = await client.get(
+                        "https://youtubeanalytics.googleapis.com/v2/reports",
+                        headers=headers,
+                        params={
+                            "ids": "channel==MINE",
+                            "startDate": str(last_30),
+                            "endDate": str(today),
+                            "metrics": "views,estimatedMinutesWatched",
+                            "dimensions": "ageGroup,gender",
+                            "filters": f"video=={video_id}",
+                        },
+                    )
+
+                    # Get geography data
+                    geography_response = await client.get(
+                        "https://youtubeanalytics.googleapis.com/v2/reports",
+                        headers=headers,
+                        params={
+                            "ids": "channel==MINE",
+                            "startDate": str(last_30),
+                            "endDate": str(today),
+                            "metrics": "views,estimatedMinutesWatched,estimatedRevenue",
+                            "dimensions": "country",
+                            "filters": f"video=={video_id}",
+                            "sort": "-views",
+                            "maxResults": 10,
+                        },
+                    )
+
+                    # Parse analytics data
+                    analytics_data = {}
+                    if video_analytics_response.status_code == 200:
+                        analytics_json = video_analytics_response.json()
+                        if analytics_json.get("rows"):
+                            row = analytics_json["rows"][0]
+                            analytics_data = {
+                                "views_30d": row[0] if len(row) > 0 else 0,
+                                "watchTime_30d": row[1] if len(row) > 1 else 0,
+                                "averageViewDuration_30d": (
+                                    row[2] if len(row) > 2 else 0
+                                ),
+                                "likes_30d": row[3] if len(row) > 3 else 0,
+                                "dislikes_30d": row[4] if len(row) > 4 else 0,
+                                "comments_30d": row[5] if len(row) > 5 else 0,
+                                "shares_30d": row[6] if len(row) > 6 else 0,
+                                "revenue_30d": row[7] if len(row) > 7 else 0,
+                                "adRevenue_30d": row[8] if len(row) > 8 else 0,
+                                "cpm_30d": row[9] if len(row) > 9 else 0,
+                                "impressions_30d": row[10] if len(row) > 10 else 0,
+                                "clickThroughRate_30d": row[11] if len(row) > 11 else 0,
+                                "viewPercentage_30d": row[12] if len(row) > 12 else 0,
+                                "subscribersGained_30d": (
+                                    row[13] if len(row) > 13 else 0
+                                ),
+                                "subscribersLost_30d": row[14] if len(row) > 14 else 0,
+                            }
+
+                    # Parse trend data
+                    trend_data = []
+                    if video_trend_response.status_code == 200:
+                        trend_json = video_trend_response.json()
+                        if trend_json.get("rows"):
+                            for row in trend_json["rows"]:
+                                trend_data.append(
+                                    {
+                                        "date": row[0],
+                                        "views": row[1],
+                                        "watchTime": row[2],
+                                        "revenue": row[3] if len(row) > 3 else 0,
+                                    }
+                                )
+
+                    # Parse traffic sources
+                    traffic_sources = []
+                    if traffic_sources_response.status_code == 200:
+                        traffic_json = traffic_sources_response.json()
+                        if traffic_json.get("rows"):
+                            for row in traffic_json["rows"]:
+                                traffic_sources.append(
+                                    {
+                                        "source": row[0],
+                                        "views": row[1],
+                                        "watchTime": row[2],
+                                    }
+                                )
+
+                    # Parse retention data
+                    retention_data = []
+                    if retention_response.status_code == 200:
+                        retention_json = retention_response.json()
+                        if retention_json.get("rows"):
+                            for row in retention_json["rows"]:
+                                retention_data.append(
+                                    {
+                                        "timeRatio": row[0],
+                                        "audienceWatchRatio": row[1],
+                                        "relativeRetention": (
+                                            row[2] if len(row) > 2 else 0
+                                        ),
+                                    }
+                                )
+
+                    # Parse demographics
+                    demographics = []
+                    if demographics_response.status_code == 200:
+                        demo_json = demographics_response.json()
+                        if demo_json.get("rows"):
+                            for row in demo_json["rows"]:
+                                demographics.append(
+                                    {
+                                        "ageGroup": row[0],
+                                        "gender": row[1],
+                                        "views": row[2],
+                                        "watchTime": row[3],
+                                    }
+                                )
+
+                    # Parse geography
+                    geography = []
+                    if geography_response.status_code == 200:
+                        geo_json = geography_response.json()
+                        if geo_json.get("rows"):
+                            for row in geo_json["rows"]:
+                                geography.append(
+                                    {
+                                        "country": row[0],
+                                        "views": row[1],
+                                        "watchTime": row[2],
+                                        "revenue": row[3] if len(row) > 3 else 0,
+                                    }
+                                )
+
+                    # Convert duration from ISO 8601 to seconds
+                    def parse_duration(duration_str):
+                        import re
+
+                        match = re.match(
+                            r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", duration_str
+                        )
+                        if match:
+                            hours = int(match.group(1) or 0)
+                            minutes = int(match.group(2) or 0)
+                            seconds = int(match.group(3) or 0)
+                            return hours * 3600 + minutes * 60 + seconds
+                        return 0
+
+                    # Calculate additional metrics
+                    stats = video_stat.get("statistics", {})
+                    snippet = video_stat.get("snippet", {})
+                    content_details = video_stat.get("contentDetails", {})
+
+                    total_views = int(stats.get("viewCount", 0))
+                    total_likes = int(stats.get("likeCount", 0))
+                    total_comments = int(stats.get("commentCount", 0))
+                    duration_seconds = parse_duration(
+                        content_details.get("duration", "PT0S")
+                    )
+
+                    # Calculate engagement rate
+                    engagement_rate = (
+                        ((total_likes + total_comments) / total_views * 100)
+                        if total_views > 0
+                        else 0
+                    )
+
+                    # Calculate RPM
+                    rpm = (
+                        (
+                            analytics_data.get("revenue_30d", 0)
+                            / (analytics_data.get("views_30d", 1) / 1000)
+                        )
+                        if analytics_data.get("views_30d", 0) > 0
+                        else 0
+                    )
+
+                    detailed_video = {
+                        "id": video_id,
+                        "title": snippet.get("title", ""),
+                        "description": snippet.get("description", ""),
+                        "thumbnails": snippet.get("thumbnails", {}),
+                        "publishedAt": snippet.get("publishedAt", ""),
+                        "channelTitle": snippet.get("channelTitle", ""),
+                        "tags": snippet.get("tags", []),
+                        "categoryId": snippet.get("categoryId", ""),
+                        "defaultLanguage": snippet.get("defaultLanguage", ""),
+                        "duration": duration_seconds,
+                        "durationFormatted": content_details.get("duration", ""),
+                        "definition": content_details.get("definition", ""),
+                        "caption": content_details.get("caption", ""),
+                        "licensedContent": content_details.get(
+                            "licensedContent", False
+                        ),
+                        "projection": content_details.get("projection", ""),
+                        # Lifetime Statistics
+                        "statistics": {
+                            "viewCount": total_views,
+                            "likeCount": total_likes,
+                            "commentCount": total_comments,
+                            "favoriteCount": int(stats.get("favoriteCount", 0)),
+                            "engagementRate": round(engagement_rate, 2),
+                        },
+                        # 30-day Performance
+                        "analytics": analytics_data,
+                        "rpm": round(rpm, 2),
+                        "trendData": trend_data,
+                        "trafficSources": traffic_sources,
+                        "retentionData": retention_data,
+                        "demographics": demographics,
+                        "geography": geography,
+                        # Status and Metadata
+                        "status": video_stat.get("status", {}),
+                        "topicDetails": video_stat.get("topicDetails", {}),
+                        "localizations": video_stat.get("localizations", {}),
+                    }
+
+                    detailed_videos.append(detailed_video)
+
+            response = {
                 "message": "Complete Revenue & Analytics Dashboard",
                 "user": current_user["name"],
                 "channelData": {
@@ -346,7 +657,12 @@ async def get_dashboard_analytics(current_user: Dict = Depends(get_current_user)
                 "playlists": playlists_response.json().get("items", []),
                 "videos": videos_response.json().get("items", []),
                 "lastUpdated": datetime.utcnow().isoformat(),
+                "detailed_videos": detailed_videos,
             }
+
+            print(response)
+
+            return response
     except Exception as e:
         import traceback
 
@@ -413,6 +729,16 @@ async def get_revenue_breakdown(current_user: Dict = Depends(get_current_user)):
                 "sort": "-estimatedRevenue",
             },
         )
+
+        print(
+            traffic_source_response.json(),
+            "traffic source-----------------------------------------",
+        )
+        print(
+            geography_response.json(),
+            "geography-----------------------------------------",
+        )
+        print(device_response.json(), "device-----------------------------------------")
 
         return {
             "trafficSources": (
