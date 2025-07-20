@@ -69,7 +69,9 @@ def calculate_growth_metrics(current_data: Dict, previous_data: Dict) -> Dict:
 @router.get("/dashboard")
 async def get_dashboard_analytics(current_user: Dict = Depends(get_current_user)):
     try:
-        user_tokens = user_storage.get_user_tokens(current_user["id"])
+        user_tokens = current_user["tokens"]
+        print("tokens", user_storage)
+
         if not user_tokens:
             raise HTTPException(status_code=401, detail="Google tokens not found")
 
@@ -676,7 +678,7 @@ async def get_dashboard_analytics(current_user: Dict = Depends(get_current_user)
 @router.get("/revenue-breakdown")
 async def get_revenue_breakdown(current_user: Dict = Depends(get_current_user)):
     """Get detailed revenue breakdown by traffic source, geography, etc."""
-    user_tokens = user_storage.get_user_tokens(current_user["id"])
+    user_tokens = current_user.get("tokens")
     if not user_tokens:
         raise HTTPException(status_code=401, detail="Google tokens not found")
 

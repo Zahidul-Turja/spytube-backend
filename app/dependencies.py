@@ -47,6 +47,7 @@ async def get_current_user(
             "name": user.name,
             "picture": user.picture,
             "google_id": user.google_id,
+            "tokens": user.tokens,
             "created_at": user.created_at,
             "updated_at": user.updated_at,
         }
