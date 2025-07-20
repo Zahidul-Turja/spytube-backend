@@ -15,13 +15,16 @@ class GoogleOAuthResponse(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: str
+    id: int
     email: EmailStr
     name: str
     picture: Optional[str] = None
     google_id: str
     created_at: datetime
     updated_at: datetime
+
+    class Config:
+        from_attributes = True  # This is what enables .from_orm()
 
 
 class TokenResponse(BaseModel):

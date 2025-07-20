@@ -42,7 +42,7 @@ class AuthService:
 
     async def exchange_code_for_tokens(self, code: str) -> Dict:
         """Exchange authorization code for access and refresh tokens"""
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=60) as client:
             data = {
                 "client_id": self.google_client_id,
                 "client_secret": self.google_client_secret,

@@ -1,16 +1,18 @@
+import traceback
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 from typing import Dict
 from app.services.auth_service import auth_service
-from app.schemas.auth import (
-    GoogleOAuthRequest,
-    GoogleOAuthResponse,
-    AuthURLResponse,
-    UserResponse,
-    GoogleUserInfo,
-)
+from app.schemas.auth import *
 from app.utils.user_storage import user_storage
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_db
+from app.repositories import user_repository
+
+from fastapi import Depends, APIRouter, HTTPException, status
+from sqlalchemy.orm import Session
+from app.models.user import User
+
 
 router = APIRouter()
 
@@ -23,16 +25,11 @@ async def get_google_auth_url():
 
 
 @router.post("/google", response_model=GoogleOAuthResponse)
-async def google_oauth(request: GoogleOAuthRequest):
-    """Exchange Google OAuth code for access token"""
+async def google_oauth(request: GoogleOAuthRequest, db: Session = Depends(get_db)):
     try:
-        # Exchange code for tokens
         tokens = await auth_service.exchange_code_for_tokens(request.code)
-
-        # Get user info from Google
         user_info = await auth_service.get_user_info(tokens["access_token"])
 
-        # Create GoogleUserInfo object
         google_user = GoogleUserInfo(
             id=user_info["id"],
             email=user_info["email"],
@@ -42,23 +39,25 @@ async def google_oauth(request: GoogleOAuthRequest):
             family_name=user_info.get("family_name"),
         )
 
-        # Create or update user in storage
-        user_data = user_storage.create_or_update_user(google_user, tokens)
+        print(google_user)
 
-        # Create our internal JWT token
+        user = user_repository.create_or_update_user(db, google_user, tokens)
+
+        print(user, "------------------------------")
+
         jwt_token = auth_service.create_access_token(
-            data={"sub": user_data["id"], "email": user_data["email"]}
+            data={"sub": user.id, "email": user.email}
         )
 
-        # Return response
         return GoogleOAuthResponse(
             access_token=jwt_token,
             token_type="bearer",
-            expires_in=1800,  # 30 minutes
-            user=UserResponse(**user_data),
+            expires_in=1800,
+            user=UserResponse.from_orm(user),
         )
 
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Authentication failed: {str(e)}",

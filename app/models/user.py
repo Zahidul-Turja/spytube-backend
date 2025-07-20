@@ -1,3 +1,5 @@
+from datetime import datetime
+from sqlalchemy import Column, DateTime
 from sqlalchemy import Column, Integer, String, JSON
 from app.database import Base
 
@@ -12,5 +14,7 @@ class User(Base):
     google_id = Column(String, nullable=True)
     tokens = Column(JSON, nullable=True)
 
-    created_at = Column(String, nullable=False)
-    updated_at = Column(String, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )

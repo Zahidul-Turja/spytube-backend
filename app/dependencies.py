@@ -3,6 +3,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Dict, Optional
 from app.services.auth_service import auth_service
 from app.utils.user_storage import user_storage
+from app.database import SessionLocal
+
 
 security = HTTPBearer()
 
@@ -70,3 +72,11 @@ async def get_user_google_tokens(
         )
 
     return tokens
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
