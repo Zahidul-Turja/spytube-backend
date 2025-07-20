@@ -4,19 +4,30 @@ from typing import Dict, Optional
 from app.services.auth_service import auth_service
 from app.utils.user_storage import user_storage
 from app.database import SessionLocal
-
+from app.repositories import user_repository
+from sqlalchemy.orm import session
+from sqlalchemy.orm import Session
 
 security = HTTPBearer()
 
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
 ) -> Dict:
-    """Get current authenticated user from JWT token"""
     try:
-        # Verify the JWT token
         payload = auth_service.verify_token(credentials.credentials)
         user_id = payload.get("sub")
+
+        print("payload", payload)
 
         if user_id is None:
             raise HTTPException(
@@ -24,17 +35,24 @@ async def get_current_user(
                 detail="Invalid token: missing user ID",
             )
 
-        # Get user from storage
-        user = user_storage.get_user(user_id)
+        user = user_repository.get_user_by_id(db, user_id)
         if user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
             )
 
-        tokens = user_storage.get_user_tokens(user_id) or {}
+        user_dict = {
+            "id": user.id,
+            "email": user.email,
+            "name": user.name,
+            "picture": user.picture,
+            "google_id": user.google_id,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at,
+        }
 
-        # Merge tokens into user dict so caller has all info
-        user_with_tokens = {**user, **tokens}
+        tokens = user_storage.get_user_tokens(user_id) or {}
+        user_with_tokens = {**user_dict, **tokens}
 
         return user_with_tokens
 
@@ -72,11 +90,3 @@ async def get_user_google_tokens(
         )
 
     return tokens
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
